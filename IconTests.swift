@@ -8,11 +8,20 @@ import AppKit
         }
         let contents = URL(fileURLWithPath: "build/InputPause.app/Contents")
         let plist = NSDictionary(contentsOf: contents.appendingPathComponent("Info.plist"))!
-        expect(plist["CFBundleIconFile"] as? String == "InputPause.icns", "bundle declares the application icon")
+        expect(FileManager.default.fileExists(atPath: contents.appendingPathComponent("Resources/Assets.car").path), "compiled native appearance catalog exists")
+        expect(plist["CFBundleIconName"] as? String == "InputPause", "bundle selects native appearance-aware icon")
+        expect(plist["CFBundleIconFile"] as? String == "InputPause", "bundle declares Apple's generated legacy fallback")
         let iconURL = contents.appendingPathComponent("Resources/InputPause.icns")
         expect(NSImage(contentsOf: iconURL) != nil, "bundle contains a readable ICNS")
-        let darkURL = contents.appendingPathComponent("Resources/InputPause-dark.icns")
-        expect(NSImage(contentsOf: darkURL) != nil, "bundle contains the dark icon artwork without claiming automatic switching")
+        let records = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: "build/icon-assets.json"))) as! [[String: Any]]
+        for (appearance, artwork) in [("NSAppearanceNameAqua", "key-light"), ("NSAppearanceNameDarkAqua", "key-dark")] {
+            expect(records.contains { record in
+                guard record["AssetType"] as? String == "IconGroup",
+                      record["Appearance"] as? String == appearance,
+                      let layers = record["Layers"] as? [[String: Any]] else { return false }
+                return layers.contains { ($0["Name"] as? String)?.hasSuffix(artwork) == true }
+            }, "compiled catalog maps \(appearance) to \(artwork)")
+        }
         for variant in ["InputPause", "InputPause-dark"] {
         for size in [16, 32, 128, 256, 512] {
             for scale in [1, 2] {
@@ -34,6 +43,6 @@ import AppKit
             }
         }
         }
-        print("PASS bundle ICNS declaration, twenty standard/Retina images, white/charcoal keys, red pause and transparency")
+        print("PASS compiled Aqua/DarkAqua artwork mapping, legacy ICNS, twenty standard/Retina images, white/charcoal keys, red pause and transparency")
     }
 }

@@ -26,6 +26,9 @@ COPYFILE_DISABLE=1 ditto -c -k --norsrc --noextattr --keepParent "$work/payload/
 for file in App.swift PauseState.swift Main.swift Tests.swift UISmoke.swift Icon.swift IconTests.swift Info.plist build.sh package.sh README.md TESTING.md LICENSE .gitignore; do
     cp "$file" "$work/source/InputPause-${version}-source/"
 done
+mkdir -p "$work/source/InputPause-${version}-source/InputPause.icon"
+cp InputPause.icon/icon.json "$work/source/InputPause-${version}-source/InputPause.icon/"
+cp NativeIconSelectionTests.swift "$work/source/InputPause-${version}-source/"
 COPYFILE_DISABLE=1 ditto -c -k --norsrc --noextattr --keepParent "$work/source/InputPause-${version}-source" "$out/InputPause-${version}-source.zip"
 hdiutil verify "$out/$name.dmg"
 hdiutil attach -readonly -nobrowse -mountpoint "$work/mount" "$out/$name.dmg"

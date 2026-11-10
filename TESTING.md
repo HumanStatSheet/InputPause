@@ -1,6 +1,6 @@
 # Verification record
 
-Build environment: macOS 26.5.1 (25F80), Apple Swift 6.3.3, arm64 (verified over SSH).
+Current build-8 environment: macOS 26.7.3 (25G342), Xcode 27.2 (27B52), Apple Swift 6.4.2, arm64 (verified over SSH). Earlier build evidence below used macOS 26.5.1 / Swift 6.3.3.
 
 ## 1.1.2 — UI and permission recovery
 
@@ -37,6 +37,26 @@ Seven deterministic policy groups, delivered-side Shift adapter checks, injected
 After the user requested matching dark artwork, a focused runtime RED confirmed the dark ICNS was absent. `Icon.swift` now also generates a charcoal key with a red pause symbol. GREEN checks both readable ICNS files and twenty standard/Retina PNGs; the key-face sample was moved clear of red-bar antialiasing at 16 pixels. The default white icon, main-window colors and all application behavior are unchanged. Apple’s Icon Composer documentation describes appearance-aware icons, but `xcrun --find actool` and `xcrun --find icontool` both failed in the Command Line Tools-only lab; `iconutil` is available. This release includes the dark resource but does not claim automatic appearance switching. No tools were installed and no runtime workaround was added.
 
 The release packaging workflow verifies signatures and full bundle equality for the build, mounted DMG and extracted app ZIP, plus archive checksums. Publication additionally compares every source-archive member with the committed GitHub source and downloads all assets to verify their hashes. Installed-app verification and app-only screenshots are recorded separately from synthetic previews; idle launch does not establish physical recovery or quarantined first-open behavior.
+
+### Build 8 — native automatic icon appearance
+
+Full Xcode is now available and its first-launch check passes; no agreements were accepted by automation. A resource-test runtime RED (`compiled native appearance catalog exists`) preceded integration of the Icon Composer document, `actool` compilation, emitted Info.plist metadata and compiled-catalog tests. The build fails rather than silently shipping static artwork if the compiler or native catalog is absent. `assetutil` confirms Aqua → white-key and DarkAqua → charcoal-key layer records. Both retain red pause marks. The unused standalone dark ICNS is removed from the app; the generated white ICNS remains for older macOS.
+
+Seven policy groups, the complete non-actuating AppKit smoke and twenty source-image resource checks passed with warnings-as-errors. App.swift, PauseState.swift, Main.swift and their existing policy/UI tests are unchanged from build 7. No tap, suppression, reset, permission request or physical recovery trial was performed.
+
+**Native selection acceptance:** the compiled, signed build-8 bundle was rendered by the public `NSWorkspace.shared.icon(forFile:)` API in fresh probe processes while the real OS appearance changed light → dark → light with automatic icon style. Measured key-face RGB changed from approximately 0.988/0.988/0.988 to 0.224/0.224/0.224 and back; the pause stayed red. The read-only `NativeIconSelectionTests.swift` checks those pixels and writes the actual OS-selected icon PNG. This is not merely `ictool` preview selection or loading the individual artwork files. Changing a probe’s NSAppearance alone does not select the global icon style. A prior bundle path cached build-7 artwork; acceptance used a fresh bundle copy instead of treating that false result as success.
+
+The separate, non-shipping lab driver temporarily operated the OS appearance configuration through SkyLight’s private settings interfaces (also used by System Settings), then restored and read back the original dark window appearance and dark icon style. Those diagnostic setters are **not** in the source archive, app, build or package scripts. The delivered app uses no private API, persistent appearance observer, runtime icon override or signed-bundle mutation. The public probe is read-only and can be reproduced after manual changes in System Settings:
+
+```sh
+swiftc -swift-version 5 -warnings-as-errors -parse-as-library NativeIconSelectionTests.swift -o build/native-icon-tests
+# Select automatic dark icon style and Light system appearance, then:
+./build/native-icon-tests /path/to/InputPause.app light build/native-light.png
+# Select Dark system appearance, then:
+./build/native-icon-tests /path/to/InputPause.app dark build/native-dark.png
+```
+
+Screen-capture preflight returned false; no capture request or permission prompt was made. Evidence images are OS-selected icon renders and AppKit view renders, **not live Finder/Dock screenshots**. Apple’s Icon Composer Default/Dark previews were separately inspected. Older macOS fallback and Clear/Tinted style behavior are not claimed as automatic custom light/dark switching. Quarantined first-open and new physical-input behavior remain untested.
 
 ## 1.1.1 — user-confirmed physical emergency fix
 
