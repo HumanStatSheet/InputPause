@@ -1,5 +1,9 @@
 # InputPause
 
+## [Download InputPause — Releases](https://github.com/HumanStatSheet/InputPause/releases)
+
+Find the latest downloads under **Assets** on the release page, including experimental prereleases.
+
 A small native Swift/AppKit input-cleaning utility for Apple Silicon Macs (macOS 13+). No third-party dependencies. Locally ad-hoc signed; not notarized.
 
 ## Experimental project and maintenance
