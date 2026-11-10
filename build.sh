@@ -14,6 +14,8 @@ mkdir -p "$app/Contents/Resources"
 swiftc -swift-version 5 -warnings-as-errors Icon.swift -o build/draw-icon
 ./build/draw-icon build/InputPause.iconset
 iconutil -c icns build/InputPause.iconset -o "$app/Contents/Resources/InputPause.icns"
+./build/draw-icon build/InputPause-dark.iconset dark
+iconutil -c icns build/InputPause-dark.iconset -o "$app/Contents/Resources/InputPause-dark.icns"
 swiftc -swift-version 5 -warnings-as-errors -parse-as-library IconTests.swift -o build/icon-tests
 ./build/icon-tests
 cp README.md LICENSE "$app/Contents/Resources/"
