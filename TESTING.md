@@ -1,5 +1,8 @@
 # Verification record
 
+> **Known issue in v1.1.0:** Holding both Shift keys does not unlock on either tested Mac, according to the user. Do not rely on the emergency shortcut. Use a short countdown; automatic timeout remains the recovery path. A fix is under investigation.
+
+
 Build environment: macOS 26.5.1 (25F80), Apple Swift 6.3.3, arm64 (verified over SSH).
 
 ## Current extension: verified test-first results
@@ -45,7 +48,7 @@ The user reports that the GitHub release works perfectly on their MacBook runnin
 
 ## Acceptance limits
 
-The user previously confirmed real keyboard suppression and automatic countdown unlock for the original release, and subsequently reported physical full-input suppression and the opposite-Shift emergency shortcut as “Working great now.” These are user-reported attended results, not instrumented full-input testing. A stale ad-hoc Accessibility authorization was resolved by removing the old InputPause entry and re-adding the current app in System Settings; this is a reported workaround, not an automated TCC test.
+The user previously confirmed real keyboard suppression and automatic countdown unlock for the original release, and subsequently reported the app as “Working great now.” The user then clarified that the opposite-Shift emergency shortcut fails on both machines; the earlier statement did not establish shortcut acceptance. These are user-reported attended results, not instrumented full-input testing. A stale ad-hoc Accessibility authorization was resolved by removing the old InputPause entry and re-adding the current app in System Settings; this is a reported workaround, not an automated TCC test.
 
 Screen Sharing side-specific Shift behavior, all duration/mode combinations, real tap-disabled notifications, sleep/session transitions and force-quit recovery remain unverified attended acceptance cases. Synthetic tests neither create a real tap nor prove physical recovery. See README for short 15-second test instructions.
 
