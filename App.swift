@@ -5,12 +5,20 @@ import Darwin
 // All access is on the main run loop, including the event-tap callback.
 final class InputGate {
     var state = PauseState()
-    // Physical, side-specific virtual keys; never infer sides from shared Shift flags.
-    // HID state precedes our session tap; Screen Sharing may use a separate source.
+    // Source-table polling is diagnostic only: it need not match delivered events.
+    private var eventShifts = (false, false)
+    static func shiftSides(_ flags: CGEventFlags) -> (Bool, Bool) {
+        // Public IOKit/hidsystem/IOLLEvent.h: NX_DEVICELSHIFTKEYMASK (2),
+        // NX_DEVICERSHIFTKEYMASK (4). The shared Shift bit alone is insufficient.
+        guard flags.contains(.maskShift) else { return (false, false) }
+        return (flags.rawValue & 0x2 != 0, flags.rawValue & 0x4 != 0)
+    }
     var shiftKeysDown: () -> (Bool, Bool) = {
         (CGEventSource.keyState(.hidSystemState, key: 56),
          CGEventSource.keyState(.hidSystemState, key: 60))
     }
+    var shiftSourceFlags: (CGEventSourceStateID) -> CGEventFlags = { CGEventSource.flagsState($0) }
+    private(set) var shiftDiagnostic = "Shift diagnostic: no active-pause sample."
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     var hasTap: Bool { tap != nil }
@@ -35,8 +43,8 @@ final class InputGate {
                                           callback: { _, type, event, context in
             guard let context else { return Unmanaged.passUnretained(event) }
             let gate = Unmanaged<InputGate>.fromOpaque(context).takeUnretainedValue()
-            // No key codes, characters, event payloads, or input logs are read.
-            return gate.filter(type) ? nil : Unmanaged.passUnretained(event)
+            // Read only modifier flags, before potentially consuming the event.
+            return gate.filter(type, flags: type == .flagsChanged ? event.flags : nil) ? nil : Unmanaged.passUnretained(event)
         }, userInfo: Unmanaged.passUnretained(self).toOpaque()) else {
             return "CGEvent.tapCreate returned nil. Input is NOT paused. Check InputPause in Privacy & Security → Accessibility and (if macOS lists or requests it) Input Monitoring; quit and reopen after approval."
         }
@@ -56,12 +64,19 @@ final class InputGate {
         return nil
     }
 
-    func filter(_ type: CGEventType) -> Bool {
+    func filter(_ type: CGEventType, flags: CGEventFlags? = nil, at now: TimeInterval = InputGate.now()) -> Bool {
         // Deadline checked for EACH event, independently of countdown/UI timer.
-        let now = Self.now()
         if state.isActive {
-            let (left, right) = shiftKeysDown()
-            state.checkEmergency(leftShift: left, rightShift: right, now: now)
+            if type == .flagsChanged, let flags { eventShifts = Self.shiftSides(flags) }
+            if type == .null {
+                // Boolean-only, latest sample in memory/UI; never a log or file.
+                let keys = shiftKeysDown()
+                let hid = Self.shiftSides(shiftSourceFlags(.hidSystemState))
+                let session = Self.shiftSides(shiftSourceFlags(.combinedSessionState))
+                shiftDiagnostic = "Shift L/R — event: \(eventShifts.0)/\(eventShifts.1); HID keys: \(keys.0)/\(keys.1); HID flags: \(hid.0)/\(hid.1); session flags: \(session.0)/\(session.1)"
+            }
+            // Timer reuses delivered state; polling must not erase a consumed press.
+            state.checkEmergency(leftShift: eventShifts.0, rightShift: eventShifts.1, now: now)
         }
         let suppress = state.shouldSuppress(type: type, now: now)
         if !state.isActive, let tap { CGEvent.tapEnable(tap: tap, enable: false) }
@@ -70,6 +85,7 @@ final class InputGate {
 
     func stop() {
         state = PauseState() // Fail open before touching resources.
+        eventShifts = (false, false)
         if let tap { CGEvent.tapEnable(tap: tap, enable: false); CFMachPortInvalidate(tap) }
         if let source { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
         source = nil
@@ -81,7 +97,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let gate = InputGate()
     let duration = NSPopUpButton()
     let mode = NSPopUpButton()
-    let warning = NSTextField(wrappingLabelWithString: "Full-input mode: Unlock Now is not clickable until countdown expiry or emergency unlock. Hold LEFT SHIFT + RIGHT SHIFT together for 2 seconds on the Mac’s physical keyboard to unlock either mode. Screen Sharing may not transmit this shortcut; rely on the countdown remotely.")
+    let warning = NSTextField(wrappingLabelWithString: "1.1.1: hold LEFT SHIFT + RIGHT SHIFT together for 2 seconds to unlock. Physical keyboard-only recovery is user-confirmed. Unlock Now is not clickable in full-input mode; rely on the countdown remotely. Use 15 seconds for initial attended testing.")
+    let diagnostic = NSTextField(wrappingLabelWithString: "Shift diagnostic: no active-pause sample.")
     let startButton = NSButton(title: "Start Timed Pause", target: nil, action: nil)
     let unlockButton = NSButton(title: "Unlock Now", target: nil, action: nil)
     private let status = NSTextField(wrappingLabelWithString: "Ready — input is not paused.")
@@ -89,7 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var timer: Timer?
 
     func buildUI() {
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 560),
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 620),
                           styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         window.title = "InputPause"
         window.isReleasedWhenClosed = false
@@ -113,7 +130,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         privacy.font = .systemFont(ofSize: 11)
         privacy.textColor = .secondaryLabelColor
         status.font = .boldSystemFont(ofSize: 15)
-        let stack = NSStackView(views: [heading, instructions, mode, duration, warning, status, startButton, unlockButton, permission, privacy])
+        diagnostic.font = .systemFont(ofSize: 11)
+        let stack = NSStackView(views: [heading, instructions, mode, duration, warning, status, diagnostic, startButton, unlockButton, permission, privacy])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 12
@@ -150,7 +168,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         unlock()
         let prompt = NSAlert()
         prompt.messageText = "Allow InputPause to pause input events?"
-        prompt.informativeText = "macOS requires Accessibility for the suppressing event tap. InputPause inspects event types only; it never reads or records typed text. Enable InputPause in System Settings. This does not start a pause."
+        prompt.informativeText = "macOS requires Accessibility for the suppressing event tap. InputPause inspects event types and Shift modifier state; it never reads or records typed text. Enable InputPause in System Settings. This does not start a pause."
         prompt.addButton(withTitle: "Request Accessibility")
         prompt.addButton(withTitle: "Cancel")
         if prompt.runModal() == .alertFirstButtonReturn {
@@ -189,6 +207,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     func refresh() {
         _ = gate.filter(.null)
+        diagnostic.stringValue = gate.shiftDiagnostic
         if !gate.state.isActive {
             if gate.hasTap || !startButton.isEnabled { unlock() }
             return
