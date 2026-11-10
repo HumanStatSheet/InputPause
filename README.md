@@ -10,6 +10,10 @@ Maintenance will be sparse; timely fixes, support and future macOS compatibility
 
 ## Install release 1.1.0
 
+**[Download InputPause 1.1.0 — release page](https://github.com/HumanStatSheet/InputPause/releases/tag/v1.1.0)** · **[Download the Apple Silicon DMG directly](https://github.com/HumanStatSheet/InputPause/releases/download/v1.1.0/InputPause-1.1.0-arm64.dmg)**
+
+On the release page, expand **Assets** to find the DMG, ZIP alternatives, and checksums.
+
 Apple Silicon only, macOS 13 or later (tested on macOS 26.5.1). Verify the downloads with `shasum -a 256 -c SHA256SUMS` in the directory containing all three archives. Open `InputPause-1.1.0-arm64.dmg` and drag **InputPause.app** onto **Applications**, then eject the disk. Alternatively extract `InputPause-1.1.0-arm64.zip` and move the app to Applications (or `~/Applications` for a per-user install). Quit an older copy before replacing it.
 
 This release is **ad-hoc signed, not Developer ID signed and not Apple notarized**. Its signature checks bundle integrity, not a verified publisher identity. A browser-downloaded copy may be blocked by Gatekeeper. Only if you trust and have inspected this release, use Apple's per-app **Privacy & Security → Open Anyway** flow if offered, or build from the provided source. Never disable Gatekeeper globally. Quarantined browser-download/first-open behavior has not been tested; local installation does not establish that it passes Gatekeeper.
