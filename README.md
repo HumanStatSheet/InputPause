@@ -12,11 +12,11 @@ A small native Swift/AppKit input-cleaning utility for Apple Silicon Macs (macOS
 
 Maintenance will be sparse; timely fixes, support and future macOS compatibility are not promised. Forks and independent improvements are encouraged. The project remains available under the **MIT license**; see `LICENSE` for its terms and warranty disclaimer.
 
-## Unreleased 1.1.3 candidate — auxiliary media controls (issue #1)
+## 1.1.3 experimental prerelease — auxiliary media controls (issue #1)
 
-The event tap previously subscribed only to ordinary keyboard/modifier events (and optional pointer events), missing `NX_SYSDEFINED` auxiliary controls. The candidate subscribes to those events in both modes and suppresses recognized volume, brightness, playback/seek, keyboard illumination, contrast, launch-panel and video-mirror controls while active. It handles their press/repeat/release events without blocking unrelated system notifications. Power, eject and unknown auxiliary controls deliberately pass through. The existing session tap, both-Shift recovery, deadline checks, pointer modes, single Accessibility flow and native adaptive icon are preserved.
+The event tap previously subscribed only to ordinary keyboard/modifier events (and optional pointer events), missing `NX_SYSDEFINED` auxiliary controls. Build 9 subscribes to those events in both modes and filters recognized volume, brightness, playback/seek, keyboard illumination, contrast, launch-panel and video-mirror controls while active. Automated delivered-event fixtures pass; physical suppression remains to be tested. It handles their press/repeat/release events without blocking unrelated system notifications. Power, eject and unknown auxiliary controls deliberately pass through. The existing session tap, both-Shift recovery, deadline checks, pointer modes, single Accessibility flow and native adaptive icon are preserved.
 
-This fixes a demonstrated filtering gap, **not a physically verified Mission Control fix**. The issue reports an M1 MacBook Pro running “Golden Gate 27.2”; that version is reporter-supplied, not the lab OS. Mission Control, Fn/Globe actions, Touch ID/lock and firmware-handled keys may take other paths. No blanket system-event filter, lower-level driver, elevated privilege or firmware-control claim is added. Issue #1 stays open until attended testing on the affected keyboard. Source candidate only: the downloadable **1.1.2 assets below are unchanged and do not contain this change**.
+This fixes a demonstrated filtering gap, **not a physically verified Mission Control fix**. The issue reports an M1 MacBook Pro running “Golden Gate 27.2”; that version is reporter-supplied, not the lab OS. Mission Control behavior on the affected M1 remains unverified. **Power, Touch ID/lock and Fn/Globe suppression are not guaranteed.** These and other firmware-handled keys may take other paths. No blanket system-event filter, lower-level driver, elevated privilege or firmware-control claim is added. Issue #1 stays open pending attended testing on the affected keyboard. This experimental binary is published with explicit user authorization so it can be tested there; publication is not physical acceptance. Previous **1.1.2 assets remain unchanged and do not contain this fix**.
 
 ## 1.1.2 — native UI, app icon and explicit permission recovery
 
@@ -30,13 +30,13 @@ The user confirmed the 1.1.1 physical-keyboard emergency fix after the requested
 
 Technical diagnostic history is retained in `TESTING.md`, not in the production interface. Replacing an ad-hoc build may require re-adding InputPause in Accessibility.
 
-## Download 1.1.2 (experimental prerelease)
+## Download 1.1.3 (experimental prerelease)
 
-**[Download InputPause 1.1.2 — release page](https://github.com/HumanStatSheet/InputPause/releases/tag/v1.1.2)** · **[Download the Apple Silicon DMG directly](https://github.com/HumanStatSheet/InputPause/releases/download/v1.1.2/InputPause-1.1.2-arm64.dmg)**
+**[Download InputPause 1.1.3 — release page](https://github.com/HumanStatSheet/InputPause/releases/tag/v1.1.3)** · **[Download the Apple Silicon DMG directly](https://github.com/HumanStatSheet/InputPause/releases/download/v1.1.3/InputPause-1.1.3-arm64.dmg)**
 
 On the release page, expand **Assets** to find the DMG, ZIP alternatives, and checksums.
 
-Apple Silicon only, macOS 13 or later (tested on macOS 26.7.3). Verify the downloads with `shasum -a 256 -c SHA256SUMS` in the directory containing all three archives. Open `InputPause-1.1.2-arm64.dmg` and drag **InputPause.app** onto **Applications**, then eject the disk. Alternatively extract `InputPause-1.1.2-arm64.zip` and move the app to Applications (or `~/Applications` for a per-user install). Quit an older copy before replacing it.
+Apple Silicon only, macOS 13 or later (tested on macOS 26.7.3). Verify the downloads with `shasum -a 256 -c SHA256SUMS` in the directory containing all three archives. Open `InputPause-1.1.3-arm64.dmg` and drag **InputPause.app** onto **Applications**, then eject the disk. Alternatively extract `InputPause-1.1.3-arm64.zip` and move the app to Applications (or `~/Applications` for a per-user install). Quit an older copy before replacing it.
 
 This release is **ad-hoc signed, not Developer ID signed and not Apple notarized**. Its signature checks bundle integrity, not a verified publisher identity. A browser-downloaded copy may be blocked by Gatekeeper. Only if you trust and have inspected this release, use Apple's per-app **Privacy & Security → Open Anyway** flow if offered, or build from the provided source. Never disable Gatekeeper globally. Quarantined browser-download/first-open behavior has not been tested; local installation does not establish that it passes Gatekeeper.
 
@@ -82,7 +82,7 @@ Artifacts: `build/InputPause.app`, `build/tests`, `build/ui-smoke`, `build/icon-
 
 ### Reproduce the packages from source
 
-Extract the matching source ZIP (`InputPause-1.1.2-source.zip`), enter the extracted source directory, and run:
+Extract the matching source ZIP (`InputPause-1.1.3-source.zip`), enter the extracted source directory, and run:
 
 ```sh
 bash package.sh
