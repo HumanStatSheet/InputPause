@@ -12,7 +12,10 @@ enum PauseMode {
             .otherMouseDragged, .scrollWheel]
     }
     var eventMask: CGEventMask {
-        eventTypes.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
+        // NX_SYSDEFINED (14) is absent from CGEventType's named cases.
+        // Subscribe in both modes, but classify its payload separately: power,
+        // sleep and unrelated system notifications must not be blanket-blocked.
+        eventTypes.reduce(CGEventMask(1) << 14) { $0 | (CGEventMask(1) << $1.rawValue) }
     }
 }
 

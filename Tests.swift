@@ -33,8 +33,11 @@ import CoreGraphics
         print("PASS full-input pointer types and deadline recovery")
         for mode in [PauseMode.keyboardOnly, .keyboardAndPointer] {
             let expected = [CGEventType.keyDown, .keyUp, .flagsChanged] + (mode == .keyboardAndPointer ? pointerTypes : [])
-            let expectedMask = expected.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
-            expect(mode.eventMask == expectedMask, "tap mask exactly matches selected mode")
+            let systemDefined = CGEventType(rawValue: 14)!
+            let expectedMask = (expected + [systemDefined]).reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
+            expect(mode.eventMask == expectedMask, "tap mask includes system-defined controls in both modes")
+            gate.start(now: 100, duration: 15, mode: mode)
+            expect(!gate.shouldSuppress(type: systemDefined, now: 101), "system-defined type alone must not suppress power or other system events")
             for duration in [15.0, 30, 60] {
                 for type in expected {
                     gate.start(now: 100, duration: duration, mode: mode)

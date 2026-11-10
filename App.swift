@@ -37,8 +37,9 @@ final class InputGate {
                                           callback: { _, type, event, context in
             guard let context else { return Unmanaged.passUnretained(event) }
             let gate = Unmanaged<InputGate>.fromOpaque(context).takeUnretainedValue()
-            // Read only modifier flags, before potentially consuming the event.
-            return gate.filter(type, flags: type == .flagsChanged ? event.flags : nil) ? nil : Unmanaged.passUnretained(event)
+            // Inspect only modifier flags or the auxiliary-control identifier;
+            // no text or input history is retained.
+            return gate.filter(type, event: event, flags: type == .flagsChanged ? event.flags : nil) ? nil : Unmanaged.passUnretained(event)
         }, userInfo: Unmanaged.passUnretained(self).toOpaque()) else {
             return "CGEvent.tapCreate returned nil. Input is NOT paused. Check InputPause in Privacy & Security → Accessibility and (if macOS lists or requests it) Input Monitoring; quit and reopen after approval."
         }
@@ -58,7 +59,7 @@ final class InputGate {
         return nil
     }
 
-    func filter(_ type: CGEventType, flags: CGEventFlags? = nil, at now: TimeInterval = InputGate.now()) -> Bool {
+    func filter(_ type: CGEventType, event: CGEvent? = nil, flags: CGEventFlags? = nil, at now: TimeInterval = InputGate.now()) -> Bool {
         // Deadline checked for EACH event, independently of countdown/UI timer.
         if state.isActive {
             if type == .flagsChanged, let flags { eventShifts = Self.shiftSides(flags) }
@@ -68,7 +69,20 @@ final class InputGate {
         }
         let suppress = state.shouldSuppress(type: type, now: now)
         if !state.isActive, let tap { CGEvent.tapEnable(tap: tap, enable: false) }
-        return suppress
+        guard state.isActive, type.rawValue == 14 else { return suppress }
+        // NX_SYSDEFINED / NX_SUBTYPE_AUX_CONTROL_BUTTONS, from public
+        // IOKit hidsystem headers. Other subtypes include power/sleep/restart,
+        // accessibility and auxiliary mouse events: always pass those through.
+        guard let event, event.type == type, let auxiliary = NSEvent(cgEvent: event),
+              auxiliary.type == .systemDefined, auxiliary.subtype.rawValue == 8 else { return false }
+        let key = (auxiliary.data1 >> 16) & 0xFFFF
+        let transition = (auxiliary.data1 >> 8) & 0xFF
+        guard transition == 0xA || transition == 0xB else { return false }
+        // ev_keymap.h: volume, brightness, mute, contrast, launch panel,
+        // video mirror, playback/seek and keyboard illumination. Down, repeat
+        // and up follow the same rule. Never blanket-consume auxiliary keys:
+        // NX_POWER_KEY (6), eject (14) and unknown identifiers pass through.
+        return [0, 1, 2, 3, 7, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23].contains(key)
     }
 
     func stop() {

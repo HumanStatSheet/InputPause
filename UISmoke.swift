@@ -113,6 +113,61 @@ import CoreGraphics
             expect(!delegate.gate.state.isActive, "countdown still unlocks without any Shift event")
         }
         print("PASS delivered Shift flags, release, duplicates, restart and countdown")
+        // AppKit -> Quartz round trips injected into the production filter only.
+        // No events are posted to the OS and no tap is installed.
+        func auxiliary(_ key: Int, _ transition: Int = 0xA00, subtype: Int16 = 8) -> CGEvent {
+            NSEvent.otherEvent(with: .systemDefined, location: .zero,
+                modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil,
+                subtype: subtype, data1: (key << 16) | transition, data2: -1)!.cgEvent!
+        }
+        let volumeDown = auxiliary(1)
+        expect(volumeDown.type.rawValue == 14, "AppKit auxiliary event bridges to Quartz system-defined type")
+        for selectedMode in [PauseMode.keyboardOnly, .keyboardAndPointer] {
+            delegate.gate.stop()
+            expect(!delegate.gate.filter(volumeDown.type, event: volumeDown, at: 101), "idle media passes")
+            delegate.gate.state.start(now: 100, duration: 15, mode: selectedMode)
+            for key in [0, 1, 2, 3, 7, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23] {
+                for transition in [0xA00, 0xA01, 0xB00] {
+                    let event = auxiliary(key, transition)
+                    expect(delegate.gate.filter(event.type, event: event, at: 101), "delivered auxiliary control \(key) press/repeat/release suppressed in \(selectedMode)")
+                }
+            }
+            for key in [6, 14, 25, 160, 0xFFFF] {
+                let event = auxiliary(key)
+                expect(!delegate.gate.filter(event.type, event: event, at: 101), "power, eject and unknown auxiliary identifiers pass")
+            }
+            for subtype: Int16 in [1, 7, 10, 11, 12, 13, 17, 100, 210] {
+                let event = auxiliary(1, subtype: subtype)
+                expect(!delegate.gate.filter(event.type, event: event, at: 101), "unrelated system subtype \(subtype) passes")
+            }
+            let malformed = auxiliary(1, 0)
+            expect(!delegate.gate.filter(malformed.type, event: malformed, at: 101), "unknown auxiliary transition passes")
+            expect(!delegate.gate.filter(volumeDown.type, at: 101), "missing system payload passes")
+            // Normal F-key events remain on the existing keyboard path. These
+            // fixtures do not prove which path Mission Control uses on hardware.
+            for key: CGKeyCode in [122, 120, 99, 160] {
+                for down in [true, false] {
+                    let event = CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: down)!
+                    expect(delegate.gate.filter(event.type, event: event, at: 101), "ordinary function-key press/release remains suppressed")
+                }
+            }
+            expect(!delegate.gate.filter(volumeDown.type, event: volumeDown, at: 115), "media callback expires at exact deadline without UI tick")
+            expect(!delegate.gate.state.isActive, "media expiry clears state")
+            for disabled in [CGEventType.tapDisabledByTimeout, .tapDisabledByUserInput] {
+                delegate.gate.state.start(now: 100, duration: 15, mode: selectedMode)
+                expect(!delegate.gate.filter(disabled, event: volumeDown, at: 101), "disabled notification wins over media payload")
+                expect(!delegate.gate.filter(volumeDown.type, event: volumeDown, at: 102), "media stays fail-open after tap disabled")
+            }
+            delegate.gate.stop()
+            delegate.gate.state.start(now: 100, duration: 15, mode: selectedMode)
+            _ = delegate.gate.filter(.flagsChanged, flags: CGEventFlags(rawValue: 0x20006), at: 101)
+            expect(delegate.gate.filter(volumeDown.type, event: volumeDown, at: 102), "media does not prematurely unlock Shift hold")
+            expect(!delegate.gate.filter(volumeDown.type, event: volumeDown, at: 103), "media callback honors both-Shift emergency deadline")
+            delegate.gate.stop()
+            expect(!delegate.gate.filter(volumeDown.type, event: volumeDown, at: 104), "stop leaves media passing")
+            expect(!delegate.gate.hasTap, "auxiliary fixtures never install a tap")
+        }
+        print("PASS in-memory auxiliary controls, safe system passthrough, ordinary function keys, media deadline/disabled/Shift recovery (both modes)")
         for selectedMode in [PauseMode.keyboardOnly, .keyboardAndPointer] {
             delegate.gate.stop()
             delegate.gate.state.start(now: InputGate.now(), duration: 15, mode: selectedMode)

@@ -8,6 +8,12 @@ A small native Swift/AppKit input-cleaning utility for Apple Silicon Macs (macOS
 
 Maintenance will be sparse; timely fixes, support and future macOS compatibility are not promised. Forks and independent improvements are encouraged. The project remains available under the **MIT license**; see `LICENSE` for its terms and warranty disclaimer.
 
+## Unreleased 1.1.3 candidate — auxiliary media controls (issue #1)
+
+The event tap previously subscribed only to ordinary keyboard/modifier events (and optional pointer events), missing `NX_SYSDEFINED` auxiliary controls. The candidate subscribes to those events in both modes and suppresses recognized volume, brightness, playback/seek, keyboard illumination, contrast, launch-panel and video-mirror controls while active. It handles their press/repeat/release events without blocking unrelated system notifications. Power, eject and unknown auxiliary controls deliberately pass through. The existing session tap, both-Shift recovery, deadline checks, pointer modes, single Accessibility flow and native adaptive icon are preserved.
+
+This fixes a demonstrated filtering gap, **not a physically verified Mission Control fix**. The issue reports an M1 MacBook Pro running “Golden Gate 27.2”; that version is reporter-supplied, not the lab OS. Mission Control, Fn/Globe actions, Touch ID/lock and firmware-handled keys may take other paths. No blanket system-event filter, lower-level driver, elevated privilege or firmware-control claim is added. Issue #1 stays open until attended testing on the affected keyboard. Source candidate only: the downloadable **1.1.2 assets below are unchanged and do not contain this change**.
+
 ## 1.1.2 — native UI, app icon and explicit permission recovery
 
 Build 8 preserves the user-approved compact native AppKit layout, system fonts and semantic colors, grouped mode/duration controls, a clear Start/countdown/Unlock area, and one Accessibility button. It adds an original white keyboard-key app icon with a red pause symbol and a charcoal-key Dark variant. Apple’s native Icon Composer catalog selects the artwork on macOS 26+; older systems use the generated white ICNS fallback. Privacy/security disclaimers stay in this README rather than the main window. Light/dark and high-contrast layouts are tested with simulated active state; no input tap is installed by the preview harness. The user confirmed reset recovery in candidate build 4 and approved the build-6 redesign. The diagnostic row and diagnostic-only source-table polling are removed; delivered-side Shift emergency detection is unchanged. **Accessibility** unlocks first. If access is already granted it opens Accessibility settings without resetting approval. Otherwise a compact dialog offers **Request Access**, **Reset & Request Access…**, or **Cancel**. Request Access uses the normal macOS permission prompt. Reset requires a separate explicit confirmation before running `/usr/bin/tccutil reset Accessibility local.inputpause.app`. This affects all copies sharing that bundle ID, not other apps. After success, approve InputPause again in System Settings, then click Start yourself. Cancellation makes no permission changes; failures are displayed without escalation.
@@ -51,7 +57,7 @@ This release is **ad-hoc signed, not Developer ID signed and not Apple notarized
 
 ## Privacy
 
-The filter examines event types and Shift modifier flags, never characters, text, coordinates, button payloads or event keycodes. No input recording. No input history or raw flags are retained. No input logging, networking, analytics, updater, login item, helper daemon, saved settings or automatic launch. The app creates no user data files. macOS independently maintains its permission metadata and diagnostics. Launch never requests permissions or installs a tap.
+The filter examines event types, Shift modifier flags, and (only for active system-defined auxiliary controls) the subtype, control identifier and press/release encoding. It never reads characters, text, coordinates, ordinary keyboard keycodes or pointer-button payloads. No input recording. No input history, auxiliary payloads or raw flags are retained. No input logging, networking, analytics, updater, login item, helper daemon, saved settings or automatic launch. The app creates no user data files. macOS independently maintains its permission metadata and diagnostics. Launch never requests permissions or installs a tap.
 
 ## Build and tests
 
@@ -62,7 +68,7 @@ cd /path/to/InputPause
 bash build.sh
 ```
 
-Runs deterministic policy tests and a non-actuating AppKit smoke executable, builds an optimized arm64 release with warnings-as-errors, and verifies plist/ad-hoc signature. Tests use synthetic event types and in-memory state; no event injection, real tap creation, `InputGate.start`, or TCC changes. The emergency adapter test supplies synthetic Shift states; it is not a physical-key acceptance test.
+Runs deterministic policy tests and a non-actuating AppKit smoke executable, builds an optimized arm64 release with warnings-as-errors, and verifies plist/ad-hoc signature. Tests use synthetic event types and in-memory state. Auxiliary tests construct AppKit events, bridge them to Quartz and inject them into the production filter; **nothing is posted to the OS**. No real tap creation, `InputGate.start`, or TCC changes. The emergency adapter test supplies synthetic Shift states; neither it nor the media fixtures are physical-key acceptance tests.
 
 The build compiles `Icon.swift` (original native AppKit vector artwork), renders ten standard/Retina PNGs at 16–1024 pixels for each variant, and populates the `InputPause.icon/icon.json` template into a complete `build/InputPause.icon` document. Apple’s `actool` compiles that document into `Assets.car` and the backward-compatible `InputPause.icns`; its emitted icon metadata is merged into Info.plist before signing. Resource tests inspect the actual catalog’s Aqua/DarkAqua artwork mappings, ICNS declaration/load, dimensions, colors and transparency. No graphics package or downloaded artwork is needed.
 
