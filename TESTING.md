@@ -2,6 +2,40 @@
 
 Build environment: macOS 26.5.1 (25F80), Apple Swift 6.3.3, arm64 (verified over SSH).
 
+## 1.1.2 — UI and permission recovery
+
+Removed the production Shift diagnostic row and its diagnostic-only source-table queries. The delivered-side flags, cached booleans, emergency hold policy, callback and timer recovery remain unchanged. Replaced version/test-history warning text with concise emergency instructions and the full-input/remote countdown caveat. The diagnostic evidence below is historical, not current UI behavior.
+
+Test-first lab execution in an isolated source directory produced runtime REDs for `production UI has no Shift diagnostic row`, `concise recovery guidance without test history`, `cancel reset unlocks without resetting or prompting`, and `separate explicit reset button is connected`, followed by GREEN. AppKit smoke and all seven policy groups passed with warnings-as-errors. Existing both-mode delivered-side flags, no-repeat timer, release, duplicates, restart and countdown cases still pass. Diagnostic-only injection/assertions were removed with the polling they tested.
+
+Recovery tests inject confirmation, reset execution, permission requests and trust checks: cancel unlocks without a reset/prompt; nonzero exit and launch failure display errors; success requests permission without starting a pause; activation rechecks denied/approved trust. The production reset is exactly `/usr/bin/tccutil reset Accessibility local.inputpause.app` via Foundation Process, without shell, sudo or global reset. Confirmation explains that all copies with the same bundle ID are affected. Start retains its existing real trust check. Automated tests exercise no real TCC reset, permission prompt, event tap or input lock. The user subsequently confirmed physical reset recovery in candidate build 4; that report is not an automated result.
+
+### Build 5 — single Accessibility button
+
+Replaced the two permission buttons with one **Accessibility** button and no extra helper row. Trusted access opens Accessibility settings without a request or reset. Untrusted access offers Request Access, Reset & Request Access…, or Cancel; reset reuses the existing scoped reset and explicit confirmation. Input filtering and recovery logic are unchanged.
+
+Test-first lab execution: runtime RED `single Accessibility button is connected`, then GREEN. Flow tests first produced compile-time REDs for missing settings/choice seams, then GREEN for trusted settings-only navigation, fresh normal request, dialog cancellation, reset confirmation cancellation, nonzero reset exit, reset launch failure and successful reset/request. All seven policy groups and the full non-actuating AppKit smoke passed with warnings-as-errors. Permission and settings side effects are injected; no real reset, prompt, settings navigation or input suppression was performed during this update.
+
+Installed candidate 1.1.2 build 5 at `~/Applications/InputPause.app`, moved build 4 to `~/.Trash/InputPause-1.1.2-build4.app` without overwriting the earlier Trash copy, and launched without Start. Strict codesign verification and full build/installed bundle comparison passed. Ad-hoc identifier: `local.inputpause.app`; no TeamIdentifier; CDHash: `da4719280d634c61a715e96cc027747d901c3cef`. Matching executable SHA-256: `b19369870c6739ed814863dab310624a14e007104ec473505d303ebbeb16b1b2`. No packaging or publication; single-button UI acceptance remains with the user.
+
+### Build 6 — native layout recovery
+
+Preserved both the accepted build-5 source snapshot and the interrupted redesign before repairing the layout rather than reverting input/permission functionality. The window is now 440 × 420 points with native grouped settings, rounded system buttons, semantic colors, system typography, accessible control names, concise ready status, and no diagnostic UI. At build 6 the footer retained the no-recording/security caveat; build 7 removes it from the window while retaining the documentation.
+
+Recovery test-first execution on the lab Mac produced runtime REDs for the compact window bound and concise approved-trust status, followed by GREEN. `bash build.sh` passed all seven policy groups and the complete non-actuating AppKit smoke with warnings-as-errors, then built and strictly verified the arm64 ad-hoc app. Layout assertions cover light, dark, both high-contrast appearances, both input modes and all three durations. Six app-only AppKit PNG renders cover idle and simulated active states in light/dark; these are view renders, not evidence of actual input suppression. Each idle preview resets to the 15-second launch default.
+
+InputGate, PauseState, Start/Unlock/countdown lifecycle, delivered-side Shift handling, and the confirmed scoped reset flow are preserved; only UI construction and the approved-trust display string changed from the build-5 snapshot. No remote Start, event tap, TCC reset, permission prompt, or physical recovery test was performed. Historical physical acceptance below is not a claim of new build-6 physical testing. The user subsequently approved the redesign and authorized publication after the final footer/icon changes.
+
+### Build 7 — release icon and final UI polish
+
+Removed the visible “No input recording. Not a security lock.” footer, retaining those limitations in README. Runtime RED `privacy and security disclaimer stays in README, not the window` preceded the removal; the full AppKit smoke then passed. No input, countdown, emergency or permission-flow code changed from build 6.
+
+Added original vector artwork in `Icon.swift`: a white sculpted keyboard key with a red pause symbol, generated with native AppKit and packaged by `iconutil`. The icon resource test first failed on the missing bundle declaration. A subsequent transparent-corner failure exposed unscaled device-space shadow lengths at small sizes; scaling those lengths fixed the failure. GREEN validates the ICNS declaration/load, ten standard/Retina PNG dimensions (16–1024 pixels), white face, red symbol and transparent corners. `Icon.swift` and `IconTests.swift` are included in the source archive, and the build generates the bundled ICNS without new dependencies.
+
+Seven deterministic policy groups, delivered-side Shift adapter checks, injected permission-flow/lifecycle checks, and light/dark/high-contrast layout checks passed on the lab Mac. Six app-only view renders cover idle and simulated active states in light/dark. These tests never request permissions, reset TCC, create an event tap or suppress real input. The user approved the previous redesign and explicitly authorized build-7 idle installation and experimental publication. No new physical-input acceptance is claimed; historical user-confirmed countdown/Shift and reset recovery remain separately scoped below and above. Ad-hoc signing still provides no Developer ID identity continuity or notarization, and renewed Accessibility approval may be needed after replacement.
+
+The release packaging workflow verifies signatures and full bundle equality for the build, mounted DMG and extracted app ZIP, plus archive checksums. Publication additionally compares every source-archive member with the committed GitHub source and downloads all assets to verify their hashes. Installed-app verification and app-only screenshots are recorded separately from synthetic previews; idle launch does not establish physical recovery or quarantined first-open behavior.
+
 ## 1.1.1 — user-confirmed physical emergency fix
 
 **Physical acceptance:** after installation of the 1.1.1 candidate, the user replied “It works now” following the requested physical-keyboard, keyboard-only, 15-second test of holding both Shift keys to unlock before timeout. This report is accepted as confirmation of the physical emergency fix and authorization to publish. It is not instrumented timing, a recorded diagnostic trace, or confirmation of every machine, mode, duration or Screen Sharing path. No redundant physical trial is required for publication.
@@ -69,4 +103,4 @@ The user previously confirmed real keyboard suppression and automatic countdown 
 
 Screen Sharing side-specific Shift behavior, all duration/mode combinations, real tap-disabled notifications, sleep/session transitions and force-quit recovery remain unverified attended acceptance cases. Synthetic tests neither create a real tap nor prove physical recovery. See README for short 15-second test instructions.
 
-The final documentation/package refresh does not replace, restart or modify the working installed app or its privacy permissions. Package verification compares against the fresh build, not the historically installed bundle (whose embedded README differs). The 1.1.1 publication follows explicit user authorization after physical acceptance.
+The historical 1.1.1 documentation/package refresh did not replace, restart or modify the working installed app or its privacy permissions. Package verification compares against the fresh build, not the historically installed bundle (whose embedded README differs). The 1.1.1 publication follows explicit user authorization after physical acceptance.

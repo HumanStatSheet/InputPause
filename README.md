@@ -8,26 +8,32 @@ A small native Swift/AppKit input-cleaning utility for Apple Silicon Macs (macOS
 
 Maintenance will be sparse; timely fixes, support and future macOS compatibility are not promised. Forks and independent improvements are encouraged. The project remains available under the **MIT license**; see `LICENSE` for its terms and warranty disclaimer.
 
-## Release 1.1.1 — emergency Shift fix
+## 1.1.2 — native UI, app icon and explicit permission recovery
+
+Build 7 preserves the user-approved compact native AppKit layout, system fonts and semantic colors, grouped mode/duration controls, a clear Start/countdown/Unlock area, and one Accessibility button. It adds an original white keyboard-key app icon with a red pause symbol, including standard and Retina representations. Privacy/security disclaimers stay in this README rather than the main window. Light/dark and high-contrast layouts are tested with simulated active state; no input tap is installed by the preview harness. The user confirmed reset recovery in candidate build 4 and approved the build-6 redesign. The diagnostic row and diagnostic-only source-table polling are removed; delivered-side Shift emergency detection is unchanged. **Accessibility** unlocks first. If access is already granted it opens Accessibility settings without resetting approval. Otherwise a compact dialog offers **Request Access**, **Reset & Request Access…**, or **Cancel**. Request Access uses the normal macOS permission prompt. Reset requires a separate explicit confirmation before running `/usr/bin/tccutil reset Accessibility local.inputpause.app`. This affects all copies sharing that bundle ID, not other apps. After success, approve InputPause again in System Settings, then click Start yourself. Cancellation makes no permission changes; failures are displayed without escalation.
+
+Ad-hoc replacements can change the code identity even without a version change. This recovery option does not provide signing continuity; Developer ID signing is a separate future distribution decision. No global reset, shell, sudo, or weakened signing requirement is used.
+
+## Released 1.1.1 — emergency Shift fix
 
 The user confirmed the 1.1.1 physical-keyboard emergency fix after the requested keyboard-only, 15-second trial using both Shift keys to unlock before timeout. This is user-reported acceptance, not an instrumented test or verification of every mode, machine or remote path. Keep a short countdown as the independent recovery path. It reads side-specific Shift flags from delivered modifier events before suppressing them, instead of relying on the polled HID key table for emergency decisions. The native reason for the 1.1.0 failure is not yet established; see `TESTING.md`. No existing release assets have been replaced.
 
-The app shows only the latest left/right Shift booleans for the delivered event state, HID key table, HID modifier flags and session modifier flags during a pause. Nothing is logged or saved. Watch these while holding the keys; the last timer sample remains visible after unlock. These tables help compare physical and Screen Sharing trials, but cannot identify an input device or prove the origin of an event. Replacing an ad-hoc build may require re-adding InputPause in Accessibility.
+Technical diagnostic history is retained in `TESTING.md`, not in the production interface. Replacing an ad-hoc build may require re-adding InputPause in Accessibility.
 
-## Download 1.1.1 (experimental prerelease)
+## Download 1.1.2 (experimental prerelease)
 
-**[Download InputPause 1.1.1 — release page](https://github.com/HumanStatSheet/InputPause/releases/tag/v1.1.1)** · **[Download the Apple Silicon DMG directly](https://github.com/HumanStatSheet/InputPause/releases/download/v1.1.1/InputPause-1.1.1-arm64.dmg)**
+**[Download InputPause 1.1.2 — release page](https://github.com/HumanStatSheet/InputPause/releases/tag/v1.1.2)** · **[Download the Apple Silicon DMG directly](https://github.com/HumanStatSheet/InputPause/releases/download/v1.1.2/InputPause-1.1.2-arm64.dmg)**
 
 On the release page, expand **Assets** to find the DMG, ZIP alternatives, and checksums.
 
-Apple Silicon only, macOS 13 or later (tested on macOS 26.5.1). Verify the downloads with `shasum -a 256 -c SHA256SUMS` in the directory containing all three archives. Open `InputPause-1.1.1-arm64.dmg` and drag **InputPause.app** onto **Applications**, then eject the disk. Alternatively extract `InputPause-1.1.1-arm64.zip` and move the app to Applications (or `~/Applications` for a per-user install). Quit an older copy before replacing it.
+Apple Silicon only, macOS 13 or later (tested on macOS 26.5.1). Verify the downloads with `shasum -a 256 -c SHA256SUMS` in the directory containing all three archives. Open `InputPause-1.1.2-arm64.dmg` and drag **InputPause.app** onto **Applications**, then eject the disk. Alternatively extract `InputPause-1.1.2-arm64.zip` and move the app to Applications (or `~/Applications` for a per-user install). Quit an older copy before replacing it.
 
 This release is **ad-hoc signed, not Developer ID signed and not Apple notarized**. Its signature checks bundle integrity, not a verified publisher identity. A browser-downloaded copy may be blocked by Gatekeeper. Only if you trust and have inspected this release, use Apple's per-app **Privacy & Security → Open Anyway** flow if offered, or build from the provided source. Never disable Gatekeeper globally. Quarantined browser-download/first-open behavior has not been tested; local installation does not establish that it passes Gatekeeper.
 
 ## Use (attended)
 
 1. Open `~/Applications/InputPause.app`. Launch is idle: no event tap or permission request.
-2. If needed, click **Enable Accessibility…**, read the explanation, and approve **InputPause** in System Settings → Privacy & Security → Accessibility. Never grant Terminal or SSH Accessibility for this app. If macOS requests Input Monitoring, approve InputPause only. Errors identify the failed API.
+2. If needed, click **Accessibility**, read the explanation, and approve **InputPause** in System Settings → Privacy & Security → Accessibility. Never grant Terminal or SSH Accessibility for this app. If macOS requests Input Monitoring, approve InputPause only. Errors identify the failed API.
 3. Choose **Keyboard only** (default) or explicitly choose **Keyboard + mouse/trackpad**. Choose **15 seconds** (default), **30 seconds**, or **60 seconds**. Release all keys, modifiers and buttons. Click **Start Timed Pause** yourself.
 4. Keyboard-only mode leaves the pointer and **Unlock Now** usable. Full-input mode suppresses keyboard events plus mouse/trackpad button presses/releases, movement, dragging and scrolling. **Unlock Now is not clickable while full-input mode is active. Wait for the countdown.** The existing pause cannot be extended by Start.
 5. Hold **LEFT SHIFT + RIGHT SHIFT together for about 2 seconds on the Mac’s physical keyboard** for emergency unlock. Releasing either resets the hold. Release both after unlocking. The physical keyboard-only fix was confirmed by the user in 1.1.1; remote behavior and other attended recovery cases remain unverified. Keep the independent countdown at 15 seconds for initial testing.
@@ -40,12 +46,12 @@ This release is **ad-hoc signed, not Developer ID signed and not Apple notarized
 - A common-mode 0.1-second timer updates the countdown, samples the emergency shortcut even without repeated events, and removes expired/disabled taps.
 - Either tap-disabled notification cancels; the app never automatically re-enables it.
 - Manual unlock, screen/system sleep, session resignation, window close and normal quit clear state and invalidate the tap. Wake/relaunch never resumes a pause.
-- Emergency detection decodes the public IOKit left/right Shift masks from `flagsChanged` event flags before consuming the event. Only two booleans and the hold timestamp are retained for detection. Callback and timer share `filter`; timer ticks reuse the delivered states until a modifier event updates them. Duplicate events do not toggle state. The shared Shift flag alone cannot establish both sides. Source-table queries are diagnostic only, never used to overwrite delivered state. Missing side flags or missed releases remain physical acceptance risks; timeout is independent.
+- Emergency detection decodes the public IOKit left/right Shift masks from `flagsChanged` event flags before consuming the event. Only two booleans and the hold timestamp are retained for detection. Callback and timer share `filter`; timer ticks reuse the delivered states until a modifier event updates them. Duplicate events do not toggle state. The shared Shift flag alone cannot establish both sides. No source-table polling is used. Missing side flags or missed releases remain physical acceptance risks; timeout is independent.
 - Process exit removes its event tap at OS level. A blocked callback is subject to the macOS event-tap watchdog, not a hard real-time guarantee. Real force-quit recovery remains an attended acceptance check.
 
 ## Privacy
 
-The filter examines event types and Shift modifier flags, never characters, text, coordinates, button payloads or event keycodes. Its active-pause diagnostic queries only fixed left/right Shift key states and masks source modifier flags to Shift booleans. Only the latest diagnostic is displayed in memory; no input history or raw flags are retained. No input logging, networking, analytics, updater, login item, helper daemon, saved settings or automatic launch. The app creates no user data files. macOS independently maintains its permission metadata and diagnostics. Launch never requests permissions or installs a tap.
+The filter examines event types and Shift modifier flags, never characters, text, coordinates, button payloads or event keycodes. No input recording. No input history or raw flags are retained. No input logging, networking, analytics, updater, login item, helper daemon, saved settings or automatic launch. The app creates no user data files. macOS independently maintains its permission metadata and diagnostics. Launch never requests permissions or installs a tap.
 
 ## Build and tests
 
@@ -58,11 +64,13 @@ bash build.sh
 
 Runs deterministic policy tests and a non-actuating AppKit smoke executable, builds an optimized arm64 release with warnings-as-errors, and verifies plist/ad-hoc signature. Tests use synthetic event types and in-memory state; no event injection, real tap creation, `InputGate.start`, or TCC changes. The emergency adapter test supplies synthetic Shift states; it is not a physical-key acceptance test.
 
-Artifacts: `build/InputPause.app`, `build/tests`, `build/ui-smoke`. Installed location: `~/Applications/InputPause.app`. Quit before replacement. No package manager or dependencies.
+The build also compiles `Icon.swift` (original native AppKit vector artwork), renders ten standard/Retina PNGs at 16–1024 pixels, and uses Apple’s `iconutil` to embed `InputPause.icns`. Resource tests check the bundle declaration, dimensions, white key face, red pause mark and transparent corners. No graphics package or downloaded artwork is needed.
+
+Artifacts: `build/InputPause.app`, `build/tests`, `build/ui-smoke`, `build/icon-tests`, `build/InputPause.iconset`. Installed location: `~/Applications/InputPause.app`. Quit before replacement. No package manager or dependencies.
 
 ### Reproduce the packages from source
 
-Extract the matching source ZIP (`InputPause-1.1.1-source.zip`), enter the extracted source directory, and run:
+Extract the matching source ZIP (`InputPause-1.1.2-source.zip`), enter the extracted source directory, and run:
 
 ```sh
 bash package.sh
@@ -70,7 +78,7 @@ bash package.sh
 
 This reruns both test executables, compiles/signs the release, and writes versioned DMG, app ZIP, source ZIP and `SHA256SUMS` under `dist/`. It verifies the read-only mounted DMG and extracted ZIP signatures and compares their apps with the build, then unmounts the DMG. The DMG includes an Applications link, README and license. The source archive uses an explicit file allowlist; no credentials, build logs or machine configuration are included. Only Apple Command Line Tools and macOS built-in utilities are required. Run from a logged-in GUI session for AppKit smoke tests. The workflow is reproducible, but archive bytes are not promised identical across runs: filesystem/archive timestamps and toolchain versions may differ.
 
-Files: `.gitignore`, `PauseState.swift`, `App.swift`, `Main.swift`, `Tests.swift`, `UISmoke.swift`, `Info.plist`, `build.sh`, `package.sh`, `README.md`, `LICENSE`, `TESTING.md`.
+Files: `.gitignore`, `PauseState.swift`, `App.swift`, `Main.swift`, `Tests.swift`, `UISmoke.swift`, `Icon.swift`, `IconTests.swift`, `Info.plist`, `build.sh`, `package.sh`, `README.md`, `LICENSE`, `TESTING.md`.
 
 ## Reported use and Accessibility troubleshooting
 
@@ -82,7 +90,7 @@ After an ad-hoc-signed app replacement, an existing Accessibility entry may appe
 
 From Screen Sharing, select **Keyboard + mouse/trackpad**, keep **15 seconds**, and click **Start Timed Pause**. Try movement, click, drag and scroll in a harmless window; verify input returns automatically. Do not assume remote input follows the physical path or that the remote Shift shortcut works. Never depend on clicking Unlock during this test.
 
-For additional attended checks, start with **keyboard-only, 15 seconds**, physically at the Mac. Test each Shift alone (must not unlock), both held for two seconds (must unlock), and releasing either before two seconds (must reset). Watch/report the boolean diagnostic during each hold; if the shortcut fails, wait for the timer. Only then repeat in full-input mode. Test Screen Sharing separately and label the input path. Separately test 30/60-second expiry, keyboard-only Unlock, sleep/wake, close/quit, force-quit recovery and special keys. The user has confirmed the physical keyboard-only emergency fix; this broader checklist is not claimed complete. No unattended full-input test is run during installation.
+For additional attended checks, start with **keyboard-only, 15 seconds**, physically at the Mac. Test each Shift alone (must not unlock), both held for two seconds (must unlock), and releasing either before two seconds (must reset). If the shortcut fails, wait for the timer. Only then repeat in full-input mode. Test Screen Sharing separately and label the input path. Separately test 30/60-second expiry, keyboard-only Unlock, sleep/wake, close/quit, force-quit recovery and special keys. The user has confirmed the physical keyboard-only emergency fix; this broader checklist is not claimed complete. No unattended full-input test is run during installation.
 
 ## Uninstall
 

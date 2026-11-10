@@ -23,7 +23,7 @@ codesign --verify --strict --verbose=2 "$work/payload/InputPause.app"
 hdiutil create -ov -format UDZO -fs HFS+ -volname "InputPause ${version}" -srcfolder "$work/payload" "$out/$name.dmg"
 COPYFILE_DISABLE=1 ditto -c -k --norsrc --noextattr --keepParent "$work/payload/InputPause.app" "$out/$name.zip"
 # Explicit allowlist: never ship logs, SSH files, local paths or build caches.
-for file in App.swift PauseState.swift Main.swift Tests.swift UISmoke.swift Info.plist build.sh package.sh README.md TESTING.md LICENSE .gitignore; do
+for file in App.swift PauseState.swift Main.swift Tests.swift UISmoke.swift Icon.swift IconTests.swift Info.plist build.sh package.sh README.md TESTING.md LICENSE .gitignore; do
     cp "$file" "$work/source/InputPause-${version}-source/"
 done
 COPYFILE_DISABLE=1 ditto -c -k --norsrc --noextattr --keepParent "$work/source/InputPause-${version}-source" "$out/InputPause-${version}-source.zip"

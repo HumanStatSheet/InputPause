@@ -5,7 +5,6 @@ import Darwin
 // All access is on the main run loop, including the event-tap callback.
 final class InputGate {
     var state = PauseState()
-    // Source-table polling is diagnostic only: it need not match delivered events.
     private var eventShifts = (false, false)
     static func shiftSides(_ flags: CGEventFlags) -> (Bool, Bool) {
         // Public IOKit/hidsystem/IOLLEvent.h: NX_DEVICELSHIFTKEYMASK (2),
@@ -13,12 +12,7 @@ final class InputGate {
         guard flags.contains(.maskShift) else { return (false, false) }
         return (flags.rawValue & 0x2 != 0, flags.rawValue & 0x4 != 0)
     }
-    var shiftKeysDown: () -> (Bool, Bool) = {
-        (CGEventSource.keyState(.hidSystemState, key: 56),
-         CGEventSource.keyState(.hidSystemState, key: 60))
-    }
-    var shiftSourceFlags: (CGEventSourceStateID) -> CGEventFlags = { CGEventSource.flagsState($0) }
-    private(set) var shiftDiagnostic = "Shift diagnostic: no active-pause sample."
+
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     var hasTap: Bool { tap != nil }
@@ -35,7 +29,7 @@ final class InputGate {
     func start(duration: TimeInterval, mode: PauseMode = .keyboardOnly) -> String? {
         stop()
         guard AXIsProcessTrusted() else {
-            return "Accessibility is not enabled (AXIsProcessTrusted returned false). Click Enable Accessibility, approve InputPause in System Settings, then click Start again."
+            return "Accessibility is not enabled (AXIsProcessTrusted returned false). Click Accessibility, approve InputPause in System Settings, then click Start again."
         }
         let mask = mode.eventMask
         guard let port = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap,
@@ -68,13 +62,7 @@ final class InputGate {
         // Deadline checked for EACH event, independently of countdown/UI timer.
         if state.isActive {
             if type == .flagsChanged, let flags { eventShifts = Self.shiftSides(flags) }
-            if type == .null {
-                // Boolean-only, latest sample in memory/UI; never a log or file.
-                let keys = shiftKeysDown()
-                let hid = Self.shiftSides(shiftSourceFlags(.hidSystemState))
-                let session = Self.shiftSides(shiftSourceFlags(.combinedSessionState))
-                shiftDiagnostic = "Shift L/R — event: \(eventShifts.0)/\(eventShifts.1); HID keys: \(keys.0)/\(keys.1); HID flags: \(hid.0)/\(hid.1); session flags: \(session.0)/\(session.1)"
-            }
+
             // Timer reuses delivered state; polling must not erase a consumed press.
             state.checkEmergency(leftShift: eventShifts.0, rightShift: eventShifts.1, now: now)
         }
@@ -97,52 +85,138 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let gate = InputGate()
     let duration = NSPopUpButton()
     let mode = NSPopUpButton()
-    let warning = NSTextField(wrappingLabelWithString: "1.1.1: hold LEFT SHIFT + RIGHT SHIFT together for 2 seconds to unlock. Physical keyboard-only recovery is user-confirmed. Unlock Now is not clickable in full-input mode; rely on the countdown remotely. Use 15 seconds for initial attended testing.")
-    let diagnostic = NSTextField(wrappingLabelWithString: "Shift diagnostic: no active-pause sample.")
+    let warning = NSTextField(wrappingLabelWithString: "Hold Left Shift + Right Shift for 2 seconds to unlock. Unlock Now is not clickable in full-input mode; rely on the countdown remotely.")
+
     let startButton = NSButton(title: "Start Timed Pause", target: nil, action: nil)
     let unlockButton = NSButton(title: "Unlock Now", target: nil, action: nil)
     private let status = NSTextField(wrappingLabelWithString: "Ready — input is not paused.")
     private var window: NSWindow!
     private var timer: Timer?
+    var confirmAccessibilityReset: () -> Bool = {
+        let prompt = NSAlert()
+        prompt.messageText = "Reset InputPause Accessibility?"
+        prompt.informativeText = "This clears Accessibility approval for all copies with bundle ID local.inputpause.app, not just this copy. Other apps are unaffected. You will need to approve InputPause again in System Settings. Input will remain unlocked."
+        prompt.addButton(withTitle: "Cancel")
+        prompt.addButton(withTitle: "Reset Accessibility")
+        return prompt.runModal() == .alertSecondButtonReturn
+    }
+    var runAccessibilityReset: () throws -> Int32 = {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        process.arguments = ["reset", "Accessibility", "local.inputpause.app"]
+        try process.run()
+        process.waitUntilExit()
+        return process.terminationStatus
+    }
+    var requestAccessibility: () -> Void = {
+        let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+        _ = AXIsProcessTrustedWithOptions([key: true] as CFDictionary)
+    }
+    var isAccessibilityTrusted: () -> Bool = { AXIsProcessTrusted() }
+
+    @objc func resetAccessibility() {
+        unlock()
+        guard confirmAccessibilityReset() else { return }
+        do {
+            let result = try runAccessibilityReset()
+            guard result == 0 else {
+                status.stringValue = "Accessibility reset failed (exit status \(result)). Input remains unlocked. No further changes were attempted."
+                return
+            }
+            status.stringValue = "Accessibility reset. Approve InputPause in System Settings → Privacy & Security → Accessibility, then click Start when ready. Input remains unlocked."
+            requestAccessibility()
+        } catch {
+            status.stringValue = "Accessibility reset could not run: \(error.localizedDescription). Input remains unlocked."
+        }
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        guard !gate.state.isActive else { return }
+        status.stringValue = isAccessibilityTrusted()
+            ? "Ready — Accessibility enabled."
+            : "Accessibility is not enabled. Approve InputPause in System Settings → Privacy & Security → Accessibility, then click Start when ready."
+    }
 
     func buildUI() {
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 620),
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 420),
                           styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         window.title = "InputPause"
         window.isReleasedWhenClosed = false
         window.delegate = self
         let heading = NSTextField(labelWithString: "Pause input for cleaning")
-        heading.font = .boldSystemFont(ofSize: 24)
-        let instructions = NSTextField(wrappingLabelWithString: "Keyboard only keeps your mouse usable. Optionally pause mouse/trackpad buttons, motion, dragging and scrolling too. Release all keys and buttons before starting.")
+        heading.font = .systemFont(ofSize: 18, weight: .semibold)
+        let instructions = NSTextField(wrappingLabelWithString: "Release all keys and buttons before starting.")
+        instructions.textColor = .secondaryLabelColor
         mode.addItems(withTitles: ["Keyboard only", "Keyboard + mouse/trackpad"])
         mode.selectItem(at: 0)
         mode.setAccessibilityLabel("Input to pause")
-        warning.font = .boldSystemFont(ofSize: 13)
+        mode.toolTip = "Keyboard only keeps your mouse usable. The other mode also pauses pointer movement, buttons, dragging, and scrolling."
         duration.addItems(withTitles: ["15 seconds", "30 seconds", "60 seconds"])
         duration.selectItem(at: 0)
         duration.setAccessibilityLabel("Pause duration")
+        let settings = NSBox()
+        settings.titlePosition = .noTitle
+        settings.contentViewMargins = NSSize(width: 14, height: 12)
+        let grid = NSGridView(views: [
+            [NSTextField(labelWithString: "Pause"), mode],
+            [NSTextField(labelWithString: "Duration"), duration]
+        ])
+        grid.rowSpacing = 12
+        grid.columnSpacing = 16
+        grid.column(at: 0).xPlacement = .leading
+        grid.column(at: 1).xPlacement = .fill
+        grid.rowAlignment = .firstBaseline
+        grid.translatesAutoresizingMaskIntoConstraints = false
+        settings.contentView!.addSubview(grid)
+        NSLayoutConstraint.activate([
+            grid.leadingAnchor.constraint(equalTo: settings.contentView!.leadingAnchor),
+            grid.trailingAnchor.constraint(equalTo: settings.contentView!.trailingAnchor),
+            grid.topAnchor.constraint(equalTo: settings.contentView!.topAnchor),
+            grid.bottomAnchor.constraint(equalTo: settings.contentView!.bottomAnchor)
+        ])
         startButton.target = self; startButton.action = #selector(startPause)
         unlockButton.target = self; unlockButton.action = #selector(unlock)
-        unlockButton.font = .boldSystemFont(ofSize: 20)
+        for button in [startButton, unlockButton] {
+            button.bezelStyle = .rounded
+            button.controlSize = .large
+        }
+        startButton.bezelColor = .controlAccentColor
+        startButton.font = .systemFont(ofSize: 13, weight: .semibold)
+        startButton.setAccessibilityHelp("Pauses the selected input until the countdown ends. Release all keys and buttons first.")
+        unlockButton.setAccessibilityHelp("Ends the pause early. Unavailable while mouse and trackpad input is paused.")
         // No keyboard equivalents: accidental cleaning keystrokes cannot start a pause.
-        let permission = NSButton(title: "Enable Accessibility…", target: self, action: #selector(enableAccessibility))
-        let privacy = NSTextField(wrappingLabelWithString: "No key recording, networking, or saved settings. Media/Fn/power keys and protected system shortcuts may still work. Not a security lock.")
-        privacy.font = .systemFont(ofSize: 11)
-        privacy.textColor = .secondaryLabelColor
-        status.font = .boldSystemFont(ofSize: 15)
-        diagnostic.font = .systemFont(ofSize: 11)
-        let stack = NSStackView(views: [heading, instructions, mode, duration, warning, status, diagnostic, startButton, unlockButton, permission, privacy])
+        let actions = NSStackView(views: [startButton, unlockButton])
+        actions.orientation = .horizontal
+        actions.spacing = 12
+        actions.distribution = .fillEqually
+        let permission = NSButton(title: "Accessibility", target: self, action: #selector(enableAccessibility))
+        permission.bezelStyle = .rounded
+        permission.setAccessibilityHelp("Manage InputPause Accessibility access.")
+
+        warning.font = .systemFont(ofSize: 12)
+        warning.textColor = .secondaryLabelColor
+        status.font = .monospacedDigitSystemFont(ofSize: 13, weight: .medium)
+        status.setAccessibilityLabel("Pause status")
+        let stack = NSStackView(views: [heading, instructions, settings, status, actions, warning, permission])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 12
+        stack.setCustomSpacing(6, after: heading)
+        stack.setCustomSpacing(20, after: instructions)
+        stack.setCustomSpacing(16, after: actions)
         stack.translatesAutoresizingMaskIntoConstraints = false
         window.contentView!.addSubview(stack)
+        for view in [instructions, settings, status, actions, warning] {
+            view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: window.contentView!.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(equalTo: window.contentView!.trailingAnchor, constant: -24),
-            stack.topAnchor.constraint(equalTo: window.contentView!.topAnchor, constant: 24),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: window.contentView!.bottomAnchor, constant: -24),
-            unlockButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 40)
+            stack.leadingAnchor.constraint(equalTo: window.contentView!.leadingAnchor, constant: 20),
+            stack.trailingAnchor.constraint(equalTo: window.contentView!.trailingAnchor, constant: -20),
+            stack.topAnchor.constraint(equalTo: window.contentView!.topAnchor, constant: 20),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: window.contentView!.bottomAnchor, constant: -20),
+            status.heightAnchor.constraint(greaterThanOrEqualToConstant: 48),
+            startButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 32),
+            unlockButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 32)
         ])
         let menu = NSMenu()
         let item = NSMenuItem()
@@ -164,16 +238,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
+    var openAccessibilitySettings: () -> Void = {
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+    }
+    var chooseAccessibilityAction: () -> NSApplication.ModalResponse = {
+        let prompt = NSAlert()
+        prompt.messageText = "Accessibility"
+        prompt.informativeText = "Allow InputPause to pause input without recording typed text. If approval is already enabled but not working, reset it and approve again. Input stays unlocked."
+        prompt.addButton(withTitle: "Request Access")
+        prompt.addButton(withTitle: "Reset & Request Access…")
+        prompt.addButton(withTitle: "Cancel")
+        return prompt.runModal()
+    }
+
     @objc func enableAccessibility() {
         unlock()
-        let prompt = NSAlert()
-        prompt.messageText = "Allow InputPause to pause input events?"
-        prompt.informativeText = "macOS requires Accessibility for the suppressing event tap. InputPause inspects event types and Shift modifier state; it never reads or records typed text. Enable InputPause in System Settings. This does not start a pause."
-        prompt.addButton(withTitle: "Request Accessibility")
-        prompt.addButton(withTitle: "Cancel")
-        if prompt.runModal() == .alertFirstButtonReturn {
-            let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
-            _ = AXIsProcessTrustedWithOptions([key: true] as CFDictionary)
+        if isAccessibilityTrusted() {
+            openAccessibilitySettings()
+            return
+        }
+        switch chooseAccessibilityAction() {
+        case .alertFirstButtonReturn: requestAccessibility()
+        case .alertSecondButtonReturn: resetAccessibility()
+        default: break
         }
     }
 
@@ -207,7 +294,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     func refresh() {
         _ = gate.filter(.null)
-        diagnostic.stringValue = gate.shiftDiagnostic
+
         if !gate.state.isActive {
             if gate.hasTap || !startButton.isEnabled { unlock() }
             return
