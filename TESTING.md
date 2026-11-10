@@ -39,6 +39,10 @@ Historical installed-build verification (before the documentation-only repack): 
 
 The package script rebuilds and verifies all archives. Release source contains only allowlisted source/scripts/docs, not operational logs. Browser-download quarantine/Gatekeeper first-open remains untested. Ad-hoc signing is not Apple notarization.
 
+## Downloaded-release user report
+
+The user reports that the GitHub release works perfectly on their MacBook running **27.3 Beta (26C5035r)** (version/build recorded exactly as reported, not independently queried). This confirms a successful user-reported downloaded-release installation/use, not an instrumented Gatekeeper test or verification of every recovery scenario. The exact first-open approval steps were not recorded.
+
 ## Acceptance limits
 
 The user previously confirmed real keyboard suppression and automatic countdown unlock for the original release, and subsequently reported physical full-input suppression and the opposite-Shift emergency shortcut as “Working great now.” These are user-reported attended results, not instrumented full-input testing. A stale ad-hoc Accessibility authorization was resolved by removing the old InputPause entry and re-adding the current app in System Settings; this is a reported workaround, not an automated TCC test.
