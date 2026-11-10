@@ -1,5 +1,8 @@
 # InputPause
 
+> **Known issue in v1.1.0:** Holding both Shift keys does not unlock on either tested Mac, according to the user. Do not rely on the emergency shortcut. Use a short countdown; automatic timeout remains the recovery path. A fix is under investigation.
+
+
 A small native Swift/AppKit input-cleaning utility for Apple Silicon Macs (macOS 13+). No third-party dependencies. Locally ad-hoc signed; not notarized.
 
 ## Experimental project and maintenance
