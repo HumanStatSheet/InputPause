@@ -56,7 +56,7 @@ On the affected M1 MacBook Pro, the user reports that a **short press of the phy
 
 InputPause intentionally fails open when the session becomes inactive or the screen/system sleeps: it clears the pause and removes its event tap. **After you log back in, input is live. Click Start Timed Pause again explicitly if you want another pause.** It does not automatically resume after unlocking. Do not rely on the lock screen as a cleaning pause.
 
-No documented macOS setting is known to this project that disables this short-press lock action. A possible native interception path needs separate investigation and testing on the affected built-in keyboard; no fix is claimed here. The long press used for forced power-off is a separate hardware/firmware function, not this short-press limitation, and is not something InputPause claims to suppress.
+No documented button-specific macOS setting is known to this project that disables only this short-press action while preserving normal screen-lock behavior. A possible native interception path needs separate investigation and testing on the affected built-in keyboard; no fix is claimed here. The long press used for forced power-off is a separate hardware/firmware function, not this short-press limitation, and is not something InputPause claims to suppress.
 
 ## Fail-open design
 
