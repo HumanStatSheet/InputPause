@@ -2,21 +2,21 @@
 
 ## [Download InputPause — Releases](https://github.com/HumanStatSheet/InputPause/releases)
 
-Find the latest downloads under **Assets** on the release page, including experimental prereleases.
+Find the latest downloads under **Assets** on the release page. **1.1.3 is the current release.**
 
 A small native Swift/AppKit input-cleaning utility for Apple Silicon Macs (macOS 13+). No third-party dependencies. Locally ad-hoc signed; not notarized.
 
-## Experimental project and maintenance
+## Project and maintenance
 
-**Experimental, fully vibe-coded / AI-assisted software.** The implementation and documentation were produced with AI assistance; passing automated checks and a successful user trial are not a guarantee of safety or reliability. This utility temporarily suppresses input: use it attended, with a short countdown, and understand the recovery limits below.
+**Fully vibe-coded / AI-assisted software.** The implementation and documentation were produced with AI assistance; passing automated checks and a successful user trial are not a guarantee of safety or reliability. This utility temporarily suppresses input: use it attended, with a short countdown, and understand the recovery limits below.
 
 Maintenance will be sparse; timely fixes, support and future macOS compatibility are not promised. Forks and independent improvements are encouraged. The project remains available under the **MIT license**; see `LICENSE` for its terms and warranty disclaimer.
 
-## 1.1.3 experimental prerelease — auxiliary media controls (issue #1)
+## Released 1.1.3 — auxiliary media controls (issue #1)
 
 The event tap previously subscribed only to ordinary keyboard/modifier events (and optional pointer events), missing `NX_SYSDEFINED` auxiliary controls. Build 9 subscribes to those events in both modes and filters recognized volume, brightness, playback/seek, keyboard illumination, contrast, launch-panel and video-mirror controls while active. Automated delivered-event fixtures pass; physical suppression remains to be tested. It handles their press/repeat/release events without blocking unrelated system notifications. Power, eject and unknown auxiliary controls deliberately pass through. The existing session tap, both-Shift recovery, deadline checks, pointer modes, single Accessibility flow and native adaptive icon are preserved.
 
-This fixes a demonstrated filtering gap, **not a physically verified Mission Control fix**. The issue reports an M1 MacBook Pro running “Golden Gate 27.2”; that version is reporter-supplied, not the lab OS. Mission Control behavior on the affected M1 remains unverified. **Power, Touch ID/lock and Fn/Globe suppression are not guaranteed.** These and other firmware-handled keys may take other paths. No blanket system-event filter, lower-level driver, elevated privilege or firmware-control claim is added. Issue #1 stays open pending attended testing on the affected keyboard. This experimental binary is published with explicit user authorization so it can be tested there; publication is not physical acceptance. Previous **1.1.2 assets remain unchanged and do not contain this fix**.
+This fixes a demonstrated filtering gap, **not a physically verified Mission Control fix**. The issue reports an M1 MacBook Pro running “Golden Gate 27.2”; that version is reporter-supplied, not the lab OS. Mission Control behavior on the affected M1 remains unverified. **Power, Touch ID/lock and Fn/Globe suppression are not guaranteed.** These and other firmware-handled keys may take other paths. No blanket system-event filter, lower-level driver, elevated privilege or firmware-control claim is added. Issue #1 stays open pending attended testing on the affected keyboard. Release status does not establish physical acceptance on every keyboard. Previous **1.1.2 assets remain unchanged and do not contain this fix**.
 
 ## 1.1.2 — native UI, app icon and explicit permission recovery
 
@@ -30,7 +30,7 @@ The user confirmed the 1.1.1 physical-keyboard emergency fix after the requested
 
 Technical diagnostic history is retained in `TESTING.md`, not in the production interface. Replacing an ad-hoc build may require re-adding InputPause in Accessibility.
 
-## Download 1.1.3 (experimental prerelease)
+## Download 1.1.3
 
 **[Download InputPause 1.1.3 — release page](https://github.com/HumanStatSheet/InputPause/releases/tag/v1.1.3)** · **[Download the Apple Silicon DMG directly](https://github.com/HumanStatSheet/InputPause/releases/download/v1.1.3/InputPause-1.1.3-arm64.dmg)**
 
