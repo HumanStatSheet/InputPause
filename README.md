@@ -50,6 +50,14 @@ This release is **ad-hoc signed, not Developer ID signed and not Apple notarized
 
 **Limitations:** not a security lock. Media/Fn/power keys, protected shortcuts, secure-input contexts, alternate input APIs, trackpad gestures outside ordinary pointer/scroll events and Screen Sharing input may behave differently. Do not apply liquid directly to equipment. Power down when every hardware function must be inactive. If a modifier/button seems stuck afterward, press and release it. Physical suppression and recovery need attended testing; automated checks do not prove them.
 
+### Known limitation: Power / Touch ID button
+
+On the affected M1 MacBook Pro, the user reports that a **short press of the physical Power / Touch ID button locks macOS and ends the active pause**. InputPause 1.1.3 does not prevent that observed behavior and must not be treated as blocking every physical key. This is a user-reported hardware result, not an instrumented trace of the button's event path.
+
+InputPause intentionally fails open when the session becomes inactive or the screen/system sleeps: it clears the pause and removes its event tap. **After you log back in, input is live. Click Start Timed Pause again explicitly if you want another pause.** It does not automatically resume after unlocking. Do not rely on the lock screen as a cleaning pause.
+
+No documented macOS setting is known to this project that disables this short-press lock action. A possible native interception path needs separate investigation and testing on the affected built-in keyboard; no fix is claimed here. The long press used for forced power-off is a separate hardware/firmware function, not this short-press limitation, and is not something InputPause claims to suppress.
+
 ## Fail-open design
 
 - `mach_continuous_time()` includes elapsed sleep time. Every callback checks its deadline independently of UI updates.
